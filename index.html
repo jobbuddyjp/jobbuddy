@@ -1,92 +1,13 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    function isAdmin() {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    }
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
-    // 企業（登録ユーザーのみ追加可・本人か管理者のみ編集・削除）
-    match /companies/{id} {
-      allow read:   if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.authorUid) || isAdmin();
-    }
-
-    // 体験談・掲示板（登録ユーザーのみ投稿可）
-    match /posts/{id} {
-      allow read:   if true;
-      allow create: if isSignedIn();
-      allow delete: if isOwner(resource.data.authorUid) || isAdmin();
-      allow update: if
-        // いいね・コメントは全員可（閲覧者も押せる）
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['likes', 'comments', 'updatedAt'])
-        ||
-        // 本文変更は本人か管理者のみ
-        isOwner(resource.data.authorUid)
-        ||
-        isAdmin();
-    }
-
-    // 口コミ（登録ユーザーのみ）
-    match /reviews/{id} {
-      allow read:   if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.authorUid) || isAdmin();
-    }
-
-    // 年収情報（登録ユーザーのみ）
-    match /salaries/{id} {
-      allow read:   if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.authorUid) || isAdmin();
-    }
-
-    // 募集要項（登録ユーザーのみ）
-    match /joblistings/{id} {
-      allow read:   if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.authorUid) || isAdmin();
-    }
-
-    // ユーザープロフィール
-    match /users/{uid} {
-      allow read:   if true;
-      allow create: if isSignedIn() && request.auth.uid == uid;
-      allow update: if isOwner(uid) || isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // お気に入り（本人のみ）
-    match /favorites/{uid} {
-      allow read, write: if isOwner(uid);
-    }
-
-    // 就活日記（本人のみ）
-    match /diary/{id} {
-      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
-    }
-
-    // Stripe課金（将来実装 - Firebase Extension用）
-    // match /customers/{uid} {
-    //   allow read, write: if isOwner(uid);
-    //   match /checkout_sessions/{id} { allow read, write: if isOwner(uid); }
-    //   match /subscriptions/{id}     { allow read: if isOwner(uid); }
-    //   match /payments/{id}          { allow read: if isOwner(uid); }
-    // }
-    // match /products/{id} {
-    //   allow read: if true;
-    //   match /prices/{id} { allow read: if true; }
-    // }
-  }
-}
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>テン活ノート | 転職・就活情報コミュニティ</title>
+    <meta name="description" content="面接体験談・年収データ・社員口コミ・求人情報を共有する転職者のためのコミュニティ。登録不要で投稿・閲覧できます。" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,6 +1,5 @@
 {
   "name": "tenkatsu-note",
-  "private": true,
   "version": "4.0.0",
   "type": "module",
   "scripts": {

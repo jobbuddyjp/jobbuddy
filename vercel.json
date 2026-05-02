@@ -1,0 +1,139 @@
+# テン活ノート v4 - 本番デプロイ手順
+
+## このコードについて
+- **本物のFirebase連携済み**（モック・デモコードなし）
+- `window.storage` は一切使用していない
+- Firebase Auth（メール認証）+ Firestore（データ保存）を直接使用
+
+## 必要なもの（すべて無料）
+- Googleアカウント → Firebase
+- GitHubアカウント → コード管理
+- Vercelアカウント → ホスティング
+
+---
+
+## STEP 1: Firebase セットアップ（約15分）
+
+1. https://console.firebase.google.com にアクセス
+2. 「プロジェクトを追加」→ 名前入力（例: tenkatsu-note）→ 作成
+3. **Authentication** → 始める → 「メール/パスワード」を有効化
+4. **Firestore Database** → 作成 → 本番環境モード → リージョン: **asia-northeast1**（東京）
+5. Firestoreコンソール → 「ルール」タブ → `firestore.rules` の内容をコピーして貼り付けて「公開」
+6. プロジェクト設定（⚙）→ マイアプリ → ウェブ（</>） → アプリ登録
+7. 表示された `firebaseConfig` の各値をメモする
+
+---
+
+## STEP 2: GitHub にアップロード
+
+1. https://github.com で新しいリポジトリ作成
+2. このフォルダの中身を全てアップロード
+3. `.env.example` を `.env.local` にコピーして Firebase の値を入力:
+
+```
+VITE_FIREBASE_API_KEY=AIza...（Firebaseからコピー）
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:xxxxx
+```
+
+**注意: `.env.local` は `.gitignore` に追加してGitHubに上げないこと**
+
+---
+
+## STEP 3: Vercel にデプロイ（約5分）
+
+1. https://vercel.com にアクセス → GitHubでログイン
+2. 「New Project」→ GitHubリポジトリを選択 → Import
+3. **Framework Preset: Vite** を選択
+4. 「Environment Variables」に `.env.local` の6つの値を設定
+5. 「Deploy」をクリック → 数分で公開完了！
+
+---
+
+## STEP 4: 管理者の設定
+
+1. サイトにアクセスして会員登録（メールアドレス認証も完了させる）
+2. Firestoreコンソール → `users` コレクション → 自分のUID
+3. `isAdmin: true` フィールドを追加
+4. ページを再読み込みすると管理者メニューが表示される
+
+---
+
+## プランの仕組み（課金構造）
+
+Firestore の `users/{uid}` ドキュメントに `plan` フィールドで制御:
+
+| plan値 | 機能 |
+|--------|------|
+| `"free"` | 閲覧・投稿は可。口コミ・年収全文は非表示 |
+| `"standard"` | 全文閲覧可（¥980/月） |
+| `"premium"` | 全機能 + CSV出力（¥2,980/月） |
+
+**本番課金の実装方法:**
+1. Stripe アカウントを作成
+2. Firebase Functions（Blazeプラン必要）でStripe Webhookを受け取る
+3. 決済完了時に `users/{uid}.plan` を更新する
+
+---
+
+## ファイル構成
+
+```
+prod/
+├── src/
+│   ├── App.jsx       ← 全機能（Firebase連携・モックなし）
+│   ├── firebase.js   ← Firebase初期化
+│   └── main.jsx      ← エントリーポイント
+├── index.html
+├── package.json
+├── vite.config.js
+├── vercel.json       ← SPAルーティング設定
+├── firestore.rules   ← セキュリティルール
+└── .env.example      ← 環境変数テンプレート
+```
+
+## スケール対応（10万人規模）
+
+- Firebase Sparkプラン（無料）は1日5万読み取りまで
+- 10万ユーザー規模では **Blazeプラン（従量課金）** へ移行が必要
+- Firestoreは水平スケールするため、コード変更は不要
+
+---
+
+## 有料プランへの移行手順（Stripe）
+
+### 現在の状態
+- 全プランが無料で利用可能（ベータ期間）
+- プランは Firestore の `users/{uid}.plan` で管理
+- `"free"` → `"standard"` → `"premium"` の3段階
+
+### Stripe導入手順（正式リリース時）
+
+**所要時間: 約2時間**
+
+1. **Stripe アカウント作成**
+   - https://stripe.com/jp でアカウント作成
+   - ダッシュボードで商品・価格を作成（スタンダード ¥980/月、プレミアム ¥2,980/月）
+
+2. **Firebase Extensions をインストール**
+   - Firebaseコンソール > Extensions
+   - "Run Payments with Stripe" を検索して有効化
+   - Stripe の Secret Key を入力するだけで完了
+
+3. **App.jsx のコメントを外す**
+   - `checkoutSession` 関数（App.jsx 内のコメント部分）を有効化
+   - PricingPage の「このプランに変更する」ボタンに `checkoutSession(priceId)` を割り当て
+
+4. **Webhook の設定**
+   - Firebase Extension が Stripe Webhook を自動設定
+   - 決済完了時に自動的に `users/{uid}.plan` が更新される
+
+### セキュリティルールの更新
+`firestore.rules` の Stripe 関連コメントを外すだけで完了します。
+
+### 課金後のプラン制御
+App.jsx の `CAN` オブジェクト（現在は plan 文字列で判定）はそのまま動作します。
+Stripe が `users/{uid}.plan` を更新するため、コードの変更は不要です。

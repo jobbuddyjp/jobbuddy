@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>テン活ノート | 転職・就活情報コミュニティ</title>
+    <meta name="description" content="面接体験談・年収データ・社員口コミ・求人情報を共有する転職者のためのコミュニティ。登録不要で投稿・閲覧できます。" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
